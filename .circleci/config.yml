@@ -1,17 +1,33 @@
 version: '2.1'
 orbs:
-  node: circleci/node@5.0.2
+  aws-s3: circleci/aws-s3@3.0
 jobs:
   test:
     docker:
-      - image: 'cimg/base:stable'
+      - image: 'cimg/node:16.14.2'
     steps:
       - checkout
-      - node/install:
-          node-version: '16.14.2'
       - run: node --version
       - run: npm install && npm test
+  build-deploy:
+    docker:
+      - image: 'cimg/node:16.14.2'
+    steps:
+      - checkout
+      - run: npm install && npm run build
+      - aws-s3/sync:
+          arguments: |
+            --acl public-read \
+            --cache-control "max-age=86400"
+          aws-access-key-id: AWS_ACCESS_KEY_ID
+          aws-region: AWS_REGION
+          aws-secret-access-key: AWS_SECRET_ACCESS_KEY
+          from: build
+          to: 's3://ci-cd-clase'
 workflows:
-  test_and_build:
+  test_and_build-deploy:
     jobs:
       - test
+      - build-deploy:
+          requires:
+            - test
